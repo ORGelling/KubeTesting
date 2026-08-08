@@ -1,6 +1,7 @@
 Add alias (for now) to bashrc such that 
 
-kubectl -> "minikube kubectl -- "
+kubectl -> "minikube kubectl -- ":
+alias kubectl="minikube kubectl -- "
 
 Main commands:
 
