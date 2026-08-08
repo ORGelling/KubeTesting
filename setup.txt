@@ -1,0 +1,20 @@
+Add alias (for now) to bashrc such that 
+
+kubectl -> "minikube kubectl -- "
+
+Main commands:
+
+minikube start/stop/status/dashboard
+kubectl get/describe/delete [type/instance]
+
+running/building:
+minikube image build -t local/kubechaos:v1 image
+kubectl apply -f deployment/manifests.yaml 
+minikube service kubechaos-svc --url
+
+editing/implementing:
+kubectl scale deployment kubechaos --replicas=4
+kubectl edit configmap kubechaos-style
+kubectl rollout restart deployment kubechaos
+
+more soon
