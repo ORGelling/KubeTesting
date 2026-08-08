@@ -19,3 +19,10 @@ kubectl edit configmap kubechaos-style
 kubectl rollout restart deployment kubechaos
 
 more soon
+
+https://kubernetes.io/docs/tutorials/
+
+Currently on:
+
+Configuration
+but basics/Expose+ has some theory I could go through again
