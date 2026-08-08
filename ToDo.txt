@@ -1,0 +1,48 @@
+To Do:
+
+Learn about resource types:
+
+pods
+deployments
+replica sets
+jobs
+ingress
+services
+
+make an nginx pod
+
+nginx deploy with 3 pod replicas
+
+make a service that exposes this deploy
+
+make an ingress controller so it can be reached from "outside"
+
+-
+
+prefer obv dns names
+    foo.lan lands on nginx deployment,
+    bar.lan lands on an admin dbadmin deployment,
+    which can talk to another deployment which contains mariadb
+
+DNS server hosted in k8s or local host file (figure out both)
+
+all DNS records point to ip of ingress controller, which balances obv fqdn to
+deployments
+
+no ssl needed, just http
+
+
+Goal is to run a Laravel application in an OCI container (Docker os, just
+tooling, no container format) that runs inside a k8s pod which talks to a k8s
+database.
+
+Use redis to manage the session storage of each pod (laravel) instance in the
+cluster so you can log into all pods concurrently. Pods share session through
+redis. Db is shared.
+
+minio to simulate an object store and install it as storage driver, so laravel
+instances aren't bound to (a) local disk.
+
+Shared db, shared memory (cache, session), shared storage (user files).
+
+Far goal: Pod with artisan queue worker(s).

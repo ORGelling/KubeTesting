@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubechaos
+  labels:
+    app: kubechaos
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: kubechaos
+  template:
+    metadata:
+      labels:
+        app: kubechaos
+    spec:
+      containers:
+      - name: app
+        image: local/kubechaos:v2
+        ports:
+          - containerPort: 3000
+        env:
+          - name: BG_COLOR
+            valueFrom:
+              configMapKeyRef:
+                name: kubechaos-style
+                key: bg_color
+          - name: FONT_COLOR
+            valueFrom:
+              configMapKeyRef:
+                name: kubechaos-style
+                key: font_color
+          - name: BORDER_COLOR
+            valueFrom:
+              configMapKeyRef:
+                name: kubechaos-style
+                key: border_color
+          - name: BORDER_STYLE
+            valueFrom:
+              configMapKeyRef:
+                name: kubechaos-style
+                key: border_style
+          - name: BORDER_SIZE
+            valueFrom:
+              configMapKeyRef:
+                name: kubechaos-style
+                key: border_size
+          - name: ENABLE_POD_DESTROY
+            value: "false"
+        volumeMounts:
+        - name: style-env
+          mountPath: "/src/public/"
+          readOnly: true
+      volumes:
+      - name: style-env
+        configMap:
+          name: kubechaos-style
+          items:
+            - key: "style.css"
+              path: "style.css"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubechaos-svc
+spec:
+  type: NodePort
+  selector:
+    app: kubechaos
+  ports:
+  - name: kubechaos-port
+    protocol: TCP
+    port: 3000
+    targetPort: 3000
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubechaos-style
+data:
+  bg_color:  teal
+  font_color: black
+  border_color: black
+  border_size: 4px
+  border_style: double
+
+  style.css: |
+    body { font-family: 'sans-serif';
+           text-align: center;
+           margin-top: 5rem;
+           }

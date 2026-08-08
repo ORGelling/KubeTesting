@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubechaos
+  namespace: lab
+  labels:
+    app.kubernetes.io/name: kubechaos
+    app.kubernetes.io/component: web
+    app.kubernetes.io/instance: lab
+    app.kubernetes.io/part-of: training-stack
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubechaos
+      app.kubernetes.io/component: web
+      app.kubernetes.io/instance: lab
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kubechaos
+        app.kubernetes.io/component: web
+        app.kubernetes.io/instance: lab
+        app.kubernetes.io/part-of: training-stack
+    spec:
+      containers:
+        - name: app
+          image: local/kubechaos:v2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: BG_COLOR
+              valueFrom:
+                configMapKeyRef:
+                  name: kubechaos-style
+                  key: bg_color
+            - name: FONT_COLOR
+              valueFrom:
+                configMapKeyRef:
+                  name: kubechaos-style
+                  key: font_color
+            - name: BORDER_COLOR
+              valueFrom:
+                configMapKeyRef:
+                  name: kubechaos-style
+                  key: border_color
+            - name: BORDER_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: kubechaos-style
+                  key: border_size
+            - name: BORDER_STYLE
+              valueFrom:
+                configMapKeyRef:
+                  name: kubechaos-style
+                  key: border_style
+            - name: ENABLE_POD_DESTROY
+              value: "false"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: style-env
+              mountPath: /src/public/
+              readOnly: true
+      volumes:
+        - name: style-env
+          configMap:
+            name: kubechaos-style
+            items:
+              - key: style.css
+                path: style.css
