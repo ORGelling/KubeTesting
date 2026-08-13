@@ -35,15 +35,8 @@ let surprises = [
        new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg").play();
      }, { once: true });
    </script>`,
-   
    `<h2>Another joke</h2>
-   <p>Why did the coder quit his job?<br>Because he didn't get arrays</p>`,
-   
-   `<h2>Another joke</h2>
-   <p>There are 10 kinds of people in this world: those who know binary, and those who don't.</p>`,
-   
-   `<h2>Another joke</h2>
-   <p>What do you call a group of programmers?<br>An assembly.</p>`
+   <p>Why did the coder quit his job?<br>Because he didn't get arrays</p>`
 ];
 
 
