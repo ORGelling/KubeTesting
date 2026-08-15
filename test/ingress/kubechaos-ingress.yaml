@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubechaos-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: kubechaos.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kubechaos-svc
+                port:
+                  number: 8000
