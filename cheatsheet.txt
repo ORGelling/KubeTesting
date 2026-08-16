@@ -24,5 +24,5 @@ https://kubernetes.io/docs/tutorials/
 
 Currently on:
 
-Configuration
-but basics/Expose+ has some theory I could go through again
+Stateless Applications: Exposing an External IP Address to Access an
+Application in a Cluster
