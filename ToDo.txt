@@ -46,3 +46,7 @@ instances aren't bound to (a) local disk.
 Shared db, shared memory (cache, session), shared storage (user files).
 
 Far goal: Pod with artisan queue worker(s).
+
+Bonus topics:
+
+rabbitmq (with admin ui) - very fast queue system. Uses Erlang language.
