@@ -18,6 +18,10 @@ kubectl scale deployment kubechaos --replicas=4
 kubectl edit configmap kubechaos-style
 kubectl rollout restart deployment kubechaos
 
+Redis:
+kubectl exec -it pod/redis -- redis-cli
+CONFIG SET/HSET/GET (value)
+
 more soon
 
 https://kubernetes.io/docs/tutorials/
