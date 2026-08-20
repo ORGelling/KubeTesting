@@ -1,0 +1,447 @@
+1. Create the project
+
+Create a Laravel app with the React starter kit:
+01-create-project.sh
+
+laravel new media-vault
+cd media-vault
+
+When prompted:
+
+    Choose a React starter kit.
+    Choose Laravel’s built-in authentication.
+    Choose MySQL/MariaDB if asked.
+    Do not start a local development server yet.
+
+Install the two extra packages:
+02-install-packages.sh
+
+composer require php-amqplib/php-amqplib
+composer require league/flysystem-aws-s3-v3
+
+npm install
+
+Laravel’s S3 filesystem driver works with S3-compatible storage such as MinIO when configured with the MinIO endpoint and credentials. (laravel.com)
+2. Files you will add or replace
+
+Your relevant project structure will become:
+Text
+
+media-vault/
+├── app/
+│   ├── Console/Commands/
+│   │   └── ConsumeFiles.php
+│   ├── Http/Controllers/
+│   │   └── FileController.php
+│   ├── Models/
+│   │   └── MediaFile.php
+│   └── Services/
+│       └── RabbitPublisher.php
+├── config/
+│   ├── filesystems.php
+│   └── rabbitmq.php
+├── database/migrations/
+│   └── 2026_08_20_000000_create_media_files_table.php
+├── infra/
+│   ├── nginx/
+│   │   └── default.conf
+│   ├── supervisord.conf
+│   └── k8s/
+│       └── all.yaml
+├── resources/
+│   ├── css/
+│   │   └── app.css
+│   ├── js/
+│   │   ├── app.tsx
+│   │   └── Pages/
+│   │       └── Files.tsx
+│   └── views/
+│       └── app.blade.php
+├── routes/
+│   └── web.php
+├── .dockerignore
+├── .env.example
+└── Dockerfile
+
+The React starter also creates auth-related files such as login and registration pages. Leave those generated files in place.
+3. Environment template
+
+Replace .env.example with this:
+.env.examplev3
+
+APP_NAME="Media Vault"
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://media.test
+
+Redis is used only for shared session and cache data. MariaDB is the durable source of truth for users and file metadata; MinIO is the durable location for actual uploaded file bytes.
+4. Configure MinIO storage
+
+Replace config/filesystems.php completely:
+config/filesystems.php
+
+<?php
+
+return [
+
+    'default' => env('FILESYSTEM_DISK', 'local'),
+
+Laravel uses the standard S3 disk configuration for MinIO; its documentation specifically identifies MinIO as an S3-compatible filesystem. (laravel.com)
+5. Add RabbitMQ configuration
+
+Create this new file. This avoids editing config/services.php entirely.
+config/rabbitmq.php
+
+<?php
+
+return [
+
+    'host' => env('RABBITMQ_HOST', 'rabbitmq'),
+
+6. Create the database model and migration
+
+Create the model:
+app/Models/MediaFile.phpv2
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+Create the migration:
+database/migrations/2026_08_20_000000_create_media_files_table.php
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+7. Publish a RabbitMQ message
+
+Create the publisher service:
+app/Services/RabbitPublisher.phpv4
+
+<?php
+
+namespace App\Services;
+
+use PhpAmqpLib\Connection\AMQPStreamConnection;
+use PhpAmqpLib\Message\AMQPMessage;
+
+The message contains only an ID, for example:
+file-uploaded-message.json
+
+{
+  "file_id": 12
+}
+
+It does not include the actual document, image, or video. That file stays in MinIO.
+8. Add the simple background worker
+
+Create the worker command:
+app/Console/Commands/ConsumeFiles.phpv2
+
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\MediaFile;
+use Illuminate\Console\Command;
+
+For now, the worker does only one useful thing:
+Text
+
+pending → complete
+
+That is enough to prove that the web deployment, RabbitMQ, worker deployment, and MariaDB are communicating correctly.
+9. Add the Laravel file controller
+
+Create this file:
+app/Http/Controllers/FileController.phpv2
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\MediaFile;
+use App\Services\RabbitPublisher;
+
+This permits files up to 50 MiB. It accepts any uploaded file type; that is intentional for this learning project.
+10. Replace the application routes
+
+Replace routes/web.php completely:
+routes/web.phpv4
+
+<?php
+
+use App\Http\Controllers\FileController;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+11. Add the minimal React frontend
+
+Replace the React app entry file:
+resources/js/app.tsxv1
+
+import '../css/app.css';
+
+import { createInertiaApp } from '@inertiajs/react';
+import { createRoot } from 'react-dom/client';
+
+createInertiaApp({
+
+Create the files page:
+resources/js/Pages/Files.tsxv2
+
+import { FormEvent, useEffect, useState } from 'react';
+
+type MediaFile = {
+  id: number;
+  original_name: string;
+  mime_type: string | null;
+
+Replace the main CSS file:
+resources/css/app.css
+
+body {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: system-ui, sans-serif;
+}
+
+Replace the Inertia Blade view:
+resources/views/app.blade.php
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta
+            name="viewport"
+
+12. Build one container image
+
+This intentionally runs Nginx and PHP-FPM in one container via Supervisor. In a larger production system, you might separate them into containers, but one application container is simpler for this first Kubernetes learning project.
+
+Create this Nginx configuration:
+infra/nginx/default.confv4
+
+server {
+    listen 8080;
+    server_name _;
+
+    root /var/www/html/public;
+    index index.php;
+
+Create Supervisor configuration:
+infra/supervisord.confv2
+
+[supervisord]
+nodaemon=true
+
+[program:php-fpm]
+command=php-fpm
+autostart=true
+
+Create the Dockerfile:
+Dockerfilev4
+
+FROM node:22-alpine AS frontend
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+Create .dockerignore:
+.dockerignorev2
+
+.git
+.env
+node_modules
+vendor
+storage/logs
+storage/framework/cache
+
+13. Kubernetes: one complete manifest
+
+Create one file containing the local Minikube setup:
+infra/k8s/all.yaml
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: media
+---
+apiVersion: v1
+
+The Ingress sends browser HTTP traffic to the media-web Service. Kubernetes requires an Ingress controller for an Ingress resource to have an effect; Minikube’s ingress add-on provides that controller. (kubernetes.io)
+14. Start Minikube and deploy
+
+Start Minikube and enable its Ingress controller:
+03-start-minikube.sh
+
+minikube start --cpus=6 --memory=8192
+minikube addons enable ingress
+
+Build the application image inside Minikube:
+04-build-image.sh
+
+minikube image build -t media-vault:dev .
+
+minikube image build builds an image using Minikube’s container runtime, so this workflow does not require you to run Docker CLI commands directly. (minikube.sigs.k8s.io)
+
+Create the namespace and then create your local-only Secret:
+05-create-secret.sh
+
+kubectl apply -f infra/k8s/all.yaml --dry-run=client -o yaml >/dev/null
+
+kubectl create namespace media --dry-run=client -o yaml | kubectl apply -f -
+
+php artisan key:generate --show
+
+Copy the output of php artisan key:generate --show, then use it here:
+06-create-kubernetes-secret.sh
+
+kubectl -n media create secret generic media-secrets \
+  --from-literal=APP_KEY='base64:PASTE_THE_GENERATED_KEY_HERE' \
+  --from-literal=DB_PASSWORD='local-db-password' \
+  --from-literal=MARIADB_ROOT_PASSWORD='local-root-password' \
+  --from-literal=AWS_ACCESS_KEY_ID='minioadmin' \
+  --from-literal=AWS_SECRET_ACCESS_KEY='local-minio-password' \
+
+Apply everything:
+07-deploy-everything.sh
+
+kubectl apply -f infra/k8s/all.yaml
+
+kubectl -n media get pods --watch
+
+Wait until MariaDB is running, then run the Laravel migrations:
+08-run-migrations.sh
+
+kubectl -n media exec deployment/media-web -- \
+  php artisan migrate --force
+
+Wait for the bucket creation Job:
+09-wait-for-bucket.sh
+
+kubectl -n media wait \
+  --for=condition=complete \
+  job/minio-create-bucket \
+  --timeout=180s
+
+15. Access the site
+
+Get Minikube’s IP:
+10-get-minikube-ip.sh
+
+minikube ip
+
+Add it to your computer’s hosts file:
+/etc/hostsv3
+
+<MINIKUBE_IP> media.test
+
+Then open:
+Text
+
+http://media.test
+
+Register a user, then visit:
+Text
+
+http://media.test/files
+
+16. Verify each service
+Check the Laravel application
+check-web-pods.sh
+
+kubectl -n media get pods -l app=media-web
+kubectl -n media logs deployment/media-web --tail=100
+
+Check the worker
+check-worker.sh
+
+kubectl -n media logs deployment/media-worker --tail=100
+
+Open RabbitMQ’s management UI
+open-rabbitmq-ui.sh
+
+kubectl -n media port-forward service/rabbitmq 15672:15672
+
+Open:
+Text
+
+http://localhost:15672
+
+Log in with:
+Text
+
+Username: media_user
+Password: local-rabbit-password
+
+Open MinIO’s console
+open-minio-console.sh
+
+kubectl -n media port-forward service/minio 9001:9001
+
+Open:
+Text
+
+http://localhost:9001
+
+Log in with:
+Text
+
+Username: minioadmin
+Password: local-minio-password
+
+You should see the private bucket named media.
+17. Final success test
+
+The simple app is working when this happens:
+
+    Register at http://media.test.
+    Go to /files.
+    Upload any file smaller than 50 MiB.
+    The page initially shows:
+
+Text
+
+Status: pending
+
+    Refresh the list.
+    The worker has consumed the RabbitMQ message and the status becomes:
+
+Text
+
+Status: complete
+
+    Click Download.
+    In MinIO, confirm the actual file is in:
+
+Text
+
+media/uploads/<your-user-id>/<generated-file-name>
+
+    Scale Laravel web pods and confirm your login remains valid:
+
+11-scale-web-pods.sh
+
+kubectl -n media scale deployment/media-web --replicas=3
+
+If that works, you have learned the core point of the project:
+
+    shared database: MariaDB;
+    shared session/cache: Redis;
+    shared file storage: MinIO;
+    shared background queue: RabbitMQ;
+    independent web and worker pods: Kubernetes Deployments;
+    browser entry point: Nginx and Ingress.
+

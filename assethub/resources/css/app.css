@@ -1,0 +1,19 @@
+body {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: system-ui, sans-serif;
+}
+
+form,
+ul {
+  margin-top: 1.5rem;
+}
+
+button {
+  margin-left: 0.5rem;
+}
+
+li {
+  margin: 0.75rem 0;
+}
